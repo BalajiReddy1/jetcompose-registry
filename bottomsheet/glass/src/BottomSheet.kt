@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,9 +20,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import kotlin.math.roundToInt
 import com.jetcompose.bottomsheet.glass.internal.bottomsheet_glass.DragHandle
 import com.jetcompose.bottomsheet.glass.internal.bottomsheet_glass.glassSurface
 import kotlinx.coroutines.launch
@@ -51,6 +56,7 @@ fun GlassBottomSheet(
     if (!visible) return
 
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
     val offsetY = remember { Animatable(0f) }
     var dragAccumulator by remember { mutableStateOf(0f) }
 
@@ -63,6 +69,7 @@ fun GlassBottomSheet(
         modifier = modifier
             .fillMaxWidth()
             .wrapContentHeight()
+            .offset { IntOffset(0, offsetY.value.roundToInt().coerceAtLeast(0)) }
             .zIndex(10f)
             .glassSurface(tint = tint, cornerRadius = cornerRadius)
             .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 24.dp)
@@ -79,7 +86,10 @@ fun GlassBottomSheet(
                         }
                     },
                     onDragEnd = {
-                        val thresholdPx = dismissThreshold.value
+                        // dragAccumulator is in px; the threshold is dp — convert
+                        // before comparing or dismissal fires too easily on
+                        // high-density screens.
+                        val thresholdPx = with(density) { dismissThreshold.toPx() }
                         if (dragAccumulator > thresholdPx) {
                             onDismiss()
                         } else {
@@ -105,11 +115,13 @@ fun GlassBottomSheet(
 private fun Modifier.pointerInputDragHandle(
     onDrag: (Float) -> Unit,
     onDragEnd: () -> Unit
-): Modifier = this.then(
-    Modifier // real implementation wires androidx.compose.ui.input.pointer.pointerInput
-    // together with detectVerticalDragGestures(onDragEnd = { onDragEnd() }) { _, dragAmount ->
-    //     onDrag(dragAmount)
-    // }
-    // Trimmed here for fixture brevity — full gesture wiring is mechanical
-    // and doesn't touch the rewrite logic being validated today.
-)
+): Modifier = this.pointerInput(Unit) {
+    detectVerticalDragGestures(
+        onDragEnd = { onDragEnd() },
+        // A cancelled gesture (e.g. the pointer is stolen by a scroll
+        // parent) must settle the sheet the same way a release does.
+        onDragCancel = { onDragEnd() }
+    ) { _, dragAmount ->
+        onDrag(dragAmount)
+    }
+}
