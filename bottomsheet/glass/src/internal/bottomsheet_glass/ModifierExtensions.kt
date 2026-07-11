@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /**
  * Applies the frosted-glass look used by GlassBottomSheet: a translucent
@@ -20,7 +21,7 @@ internal fun Modifier.glassSurface(tint: Color, cornerRadius: Dp): Modifier {
     return this
         .background(color = tint.copy(alpha = 0.18f), shape = shape)
         .border(
-            width = 1.dp.value.let { androidx.compose.ui.unit.Dp(it) },
+            width = 1.dp,
             brush = Brush.verticalGradient(
                 colors = listOf(
                     Color.White.copy(alpha = 0.35f),
